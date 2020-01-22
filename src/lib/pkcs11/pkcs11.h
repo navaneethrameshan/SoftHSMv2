@@ -988,6 +988,13 @@ struct ck_gcm_params {
   unsigned long tag_bits;
 };
 
+struct ck_gcm_params_alternative {
+  unsigned char *iv_ptr;
+  unsigned long iv_len;
+  unsigned char *aad_ptr;
+  unsigned long aad_len;
+  unsigned long tag_bits;
+};
 
 /* The following EC Key Derivation Functions are defined */
 #define CKD_NULL			(0x01UL)
@@ -1629,6 +1636,9 @@ typedef struct ck_aes_ctr_params *CK_AES_CTR_PARAMS_PTR;
 
 typedef struct ck_gcm_params CK_GCM_PARAMS;
 typedef struct ck_gcm_params *CK_GCM_PARAMS_PTR;
+
+typedef struct ck_gcm_params_alternative CK_GCM_PARAMS_ALTERNATIVE;
+typedef struct ck_gcm_params_alternative *CK_GCM_PARAMS_ALTERNATIVE_PTR;
 
 typedef struct ck_ecdh1_derive_params CK_ECDH1_DERIVE_PARAMS;
 typedef struct ck_ecdh1_derive_params *CK_ECDH1_DERIVE_PARAMS_PTR;

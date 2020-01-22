@@ -2192,16 +2192,27 @@ CK_RV SoftHSM::SymEncryptInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMech
 			algo = SymAlgo::AES;
 			mode = SymMode::GCM;
 			if (pMechanism->pParameter == NULL_PTR ||
-			    pMechanism->ulParameterLen != sizeof(CK_GCM_PARAMS))
+                (pMechanism->ulParameterLen != sizeof(CK_GCM_PARAMS) && pMechanism->ulParameterLen != sizeof(CK_GCM_PARAMS_ALTERNATIVE)))
 			{
-				DEBUG_MSG("GCM mode requires parameters");
+			    DEBUG_MSG("GCM mode requires parameters");
 				return CKR_ARGUMENTS_BAD;
 			}
-			iv.resize(CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulIvLen);
-			memcpy(&iv[0], CK_GCM_PARAMS_PTR(pMechanism->pParameter)->pIv, CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulIvLen);
-			aad.resize(CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulAADLen);
-			memcpy(&aad[0], CK_GCM_PARAMS_PTR(pMechanism->pParameter)->pAAD, CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulAADLen);
-			tagBytes = CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulTagBits;
+            if(pMechanism->ulParameterLen == sizeof(CK_GCM_PARAMS))
+            {
+                iv.resize(CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulIvLen);
+                memcpy(&iv[0], CK_GCM_PARAMS_PTR(pMechanism->pParameter)->pIv, CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulIvLen);
+                aad.resize(CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulAADLen);
+                memcpy(&aad[0], CK_GCM_PARAMS_PTR(pMechanism->pParameter)->pAAD, CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulAADLen);
+                tagBytes = CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulTagBits;
+            }
+            else if(pMechanism->ulParameterLen == sizeof(CK_GCM_PARAMS_ALTERNATIVE))
+            {
+                iv.resize(CK_GCM_PARAMS_ALTERNATIVE_PTR(pMechanism->pParameter)->ulIvLen);
+                memcpy(&iv[0], CK_GCM_PARAMS_ALTERNATIVE_PTR(pMechanism->pParameter)->pIv, CK_GCM_PARAMS_ALTERNATIVE_PTR(pMechanism->pParameter)->ulIvLen);
+                aad.resize(CK_GCM_PARAMS_ALTERNATIVE_PTR(pMechanism->pParameter)->ulAADLen);
+                memcpy(&aad[0], CK_GCM_PARAMS_ALTERNATIVE_PTR(pMechanism->pParameter)->pAAD, CK_GCM_PARAMS_ALTERNATIVE_PTR(pMechanism->pParameter)->ulAADLen);
+                tagBytes = CK_GCM_PARAMS_ALTERNATIVE_PTR(pMechanism->pParameter)->ulTagBits;
+            }
 			if (tagBytes > 128 || tagBytes % 8 != 0)
 			{
 				DEBUG_MSG("Invalid ulTagBits value");
@@ -2224,11 +2235,10 @@ CK_RV SoftHSM::SymEncryptInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMech
 		CryptoFactory::i()->recycleSymmetricAlgorithm(cipher);
 		return CKR_GENERAL_ERROR;
 	}
-
 	// adjust key bit length
 	secretkey->setBitLen(secretkey->getKeyBits().size() * bb);
 
-	// Initialize encryption
+  // Initialize encryption
 	if (!cipher->encryptInit(secretkey, mode, iv, padding, counterBits, aad, tagBytes))
 	{
 		cipher->recycleKey(secretkey);
@@ -2873,16 +2883,27 @@ CK_RV SoftHSM::SymDecryptInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMech
 			algo = SymAlgo::AES;
 			mode = SymMode::GCM;
 			if (pMechanism->pParameter == NULL_PTR ||
-			    pMechanism->ulParameterLen != sizeof(CK_GCM_PARAMS))
+                (pMechanism->ulParameterLen != sizeof(CK_GCM_PARAMS) && pMechanism->ulParameterLen != sizeof(CK_GCM_PARAMS_ALTERNATIVE)))
 			{
 				DEBUG_MSG("GCM mode requires parameters");
 				return CKR_ARGUMENTS_BAD;
 			}
-			iv.resize(CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulIvLen);
-			memcpy(&iv[0], CK_GCM_PARAMS_PTR(pMechanism->pParameter)->pIv, CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulIvLen);
-			aad.resize(CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulAADLen);
-			memcpy(&aad[0], CK_GCM_PARAMS_PTR(pMechanism->pParameter)->pAAD, CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulAADLen);
-			tagBytes = CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulTagBits;
+            if(pMechanism->ulParameterLen == sizeof(CK_GCM_PARAMS))
+            {
+              iv.resize(CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulIvLen);
+              memcpy(&iv[0], CK_GCM_PARAMS_PTR(pMechanism->pParameter)->pIv, CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulIvLen);
+              aad.resize(CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulAADLen);
+              memcpy(&aad[0], CK_GCM_PARAMS_PTR(pMechanism->pParameter)->pAAD, CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulAADLen);
+              tagBytes = CK_GCM_PARAMS_PTR(pMechanism->pParameter)->ulTagBits;
+            }
+            else if(pMechanism->ulParameterLen == sizeof(CK_GCM_PARAMS_ALTERNATIVE))
+            {
+              iv.resize(CK_GCM_PARAMS_ALTERNATIVE_PTR(pMechanism->pParameter)->ulIvLen);
+              memcpy(&iv[0], CK_GCM_PARAMS_ALTERNATIVE_PTR(pMechanism->pParameter)->pIv, CK_GCM_PARAMS_ALTERNATIVE_PTR(pMechanism->pParameter)->ulIvLen);
+              aad.resize(CK_GCM_PARAMS_ALTERNATIVE_PTR(pMechanism->pParameter)->ulAADLen);
+              memcpy(&aad[0], CK_GCM_PARAMS_ALTERNATIVE_PTR(pMechanism->pParameter)->pAAD, CK_GCM_PARAMS_ALTERNATIVE_PTR(pMechanism->pParameter)->ulAADLen);
+              tagBytes = CK_GCM_PARAMS_ALTERNATIVE_PTR(pMechanism->pParameter)->ulTagBits;
+            }
 			if (tagBytes > 128 || tagBytes % 8 != 0)
 			{
 				DEBUG_MSG("Invalid ulTagBits value");
