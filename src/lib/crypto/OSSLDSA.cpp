@@ -437,7 +437,8 @@ bool OSSLDSA::verifyFinal(const ByteString& signature)
 
 // Encryption functions
 bool OSSLDSA::encrypt(PublicKey* /*publicKey*/, const ByteString& /*data*/,
-		      ByteString& /*encryptedData*/, const AsymMech::Type /*padding*/)
+		      ByteString& /*encryptedData*/, const AsymMech::Type /*padding*/, const void* /* = NULL */,
+		      const size_t /* = 0 */)
 {
 	ERROR_MSG("DSA does not support encryption");
 
@@ -446,7 +447,8 @@ bool OSSLDSA::encrypt(PublicKey* /*publicKey*/, const ByteString& /*data*/,
 
 // Decryption functions
 bool OSSLDSA::decrypt(PrivateKey* /*privateKey*/, const ByteString& /*encryptedData*/,
-		      ByteString& /*data*/, const AsymMech::Type /*padding*/)
+		      ByteString& /*data*/, const AsymMech::Type /*padding*/,  const void* /* = NULL */,
+		      const size_t /* = 0 */)
 {
 	ERROR_MSG("DSA does not support decryption");
 

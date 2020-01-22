@@ -6453,9 +6453,12 @@ CK_RV SoftHSM::UnwrapKeyAsym
 	ByteString& keydata
 )
 {
+        RSA_PKCS_OAEP_PARAMS rsaPkcsOaepParams;
 	// Get the symmetric algorithm matching the mechanism
 	AsymAlgo::Type algo = AsymAlgo::Unknown;
 	AsymMech::Type mode = AsymMech::Unknown;
+	void* param = NULL;
+	size_t paramLen = 0;
 	switch(pMechanism->mechanism) {
 		case CKM_RSA_PKCS:
 			algo = AsymAlgo::RSA;
@@ -6465,6 +6468,44 @@ CK_RV SoftHSM::UnwrapKeyAsym
 		case CKM_RSA_PKCS_OAEP:
 			algo = AsymAlgo::RSA;
 			mode = AsymMech::RSA_PKCS_OAEP;
+			switch(CK_RSA_PKCS_OAEP_PARAMS_PTR (pMechanism->pParameter)->hashAlg) {
+				case CKM_SHA_1:
+					rsaPkcsOaepParams.hashAlg = HashAlgo::SHA1;
+					break;
+				case CKM_SHA256:
+					rsaPkcsOaepParams.hashAlg = HashAlgo::SHA256;
+					break;
+				case CKM_SHA384:
+					rsaPkcsOaepParams.hashAlg = HashAlgo::SHA384;
+					break;
+				case CKM_SHA512:
+					rsaPkcsOaepParams.hashAlg = HashAlgo::SHA512;
+					break;
+				default:
+					ERROR_MSG("Invalid RSA-OAEP hash");
+					return CKR_ARGUMENTS_BAD;
+			}
+
+			switch(CK_RSA_PKCS_OAEP_PARAMS_PTR(pMechanism->pParameter)->mgf){
+				case CKG_MGF1_SHA1:
+					rsaPkcsOaepParams.mgf = AsymRSAMGF::MGF1_SHA1;
+					break;
+				case CKG_MGF1_SHA256:
+					rsaPkcsOaepParams.mgf = AsymRSAMGF::MGF1_SHA256;
+					break;
+				case CKG_MGF1_SHA384:
+					rsaPkcsOaepParams.mgf = AsymRSAMGF::MGF1_SHA384;
+					break;
+				case CKG_MGF1_SHA512:
+					rsaPkcsOaepParams.mgf = AsymRSAMGF::MGF1_SHA512;
+					break;
+				default:
+					ERROR_MSG("Invalid RSA-OAEP mgf");
+					return CKR_ARGUMENTS_BAD;
+			}
+
+			param = &rsaPkcsOaepParams;
+			paramLen = sizeof(rsaPkcsOaepParams);
 			break;
 
 		default:
@@ -6497,7 +6538,7 @@ CK_RV SoftHSM::UnwrapKeyAsym
 
 	// Unwrap the key
 	CK_RV rv = CKR_OK;
-	if (!cipher->unwrapKey(unwrappingkey, wrapped, keydata, mode))
+	if (!cipher->unwrapKey(unwrappingkey, wrapped, keydata, mode, param, paramLen))
 		rv = CKR_GENERAL_ERROR;
 	cipher->recyclePrivateKey(unwrappingkey);
 	CryptoFactory::i()->recycleAsymmetricAlgorithm(cipher);
@@ -12211,14 +12252,14 @@ CK_RV SoftHSM::MechParamCheckRSAPKCSOAEP(CK_MECHANISM_PTR pMechanism)
 	}
 
 	CK_RSA_PKCS_OAEP_PARAMS_PTR params = (CK_RSA_PKCS_OAEP_PARAMS_PTR)pMechanism->pParameter;
-	if (params->hashAlg != CKM_SHA_1)
+	if (params->hashAlg != CKM_SHA_1 && params->hashAlg != CKM_SHA256 && params->hashAlg != CKM_SHA384 && params->hashAlg != CKM_SHA512)
 	{
-		ERROR_MSG("hashAlg must be CKM_SHA_1");
+		ERROR_MSG("hashAlg must be CKM_SHA_1 or CKM_SHA256 or CKM_SHA384 or CKM_SHA512");
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (params->mgf != CKG_MGF1_SHA1)
+	if (params->mgf != CKG_MGF1_SHA1 && params->mgf != CKG_MGF1_SHA256 && params->mgf != CKG_MGF1_SHA384 && params->mgf != CKG_MGF1_SHA512)
 	{
-		ERROR_MSG("mgf must be CKG_MGF1_SHA1");
+		ERROR_MSG("mgf must be CKG_MGF1_SHA1 or CKG_MGF1_SHA256 or CKG_MGF1_SHA384 or CKG_MGF1_SHA512");
 		return CKR_ARGUMENTS_BAD;
 	}
 	if (params->source != CKZ_DATA_SPECIFIED)

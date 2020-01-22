@@ -1206,8 +1206,10 @@ bool OSSLRSA::verifyFinal(const ByteString& signature)
 
 // Encryption functions
 bool OSSLRSA::encrypt(PublicKey* publicKey, const ByteString& data,
-		      ByteString& encryptedData, const AsymMech::Type padding)
+		      ByteString& encryptedData, const AsymMech::Type padding,
+		      const void* /* = NULL */, const size_t /* = 0 */)
 {
+
 	// Check if the public key is the right type
 	if (!publicKey->isOfType(OSSLRSAPublicKey::type))
 	{
@@ -1282,7 +1284,7 @@ bool OSSLRSA::encrypt(PublicKey* publicKey, const ByteString& data,
 
 // Decryption functions
 bool OSSLRSA::decrypt(PrivateKey* privateKey, const ByteString& encryptedData,
-		      ByteString& data, const AsymMech::Type padding)
+		      ByteString& data, const AsymMech::Type padding, const void* param /* = NULL */, const size_t paramLen /* = 0 */)
 {
 	// Check if the private key is the right type
 	if (!privateKey->isOfType(OSSLRSAPrivateKey::type))
@@ -1324,17 +1326,107 @@ bool OSSLRSA::decrypt(PrivateKey* privateKey, const ByteString& encryptedData,
 
 	// Perform the RSA operation
 	data.resize(RSA_size(rsa));
+	int decSize = 0;
 
-	int decSize = RSA_private_decrypt(encryptedData.size(), (unsigned char*) encryptedData.const_byte_str(), &data[0], rsa, osslPadding);
-
-	if (decSize == -1)
+	if (padding!= AsymMech::RSA_PKCS_OAEP)
 	{
-		ERROR_MSG("RSA private key decryption failed (0x%08X)", ERR_get_error());
+		decSize = RSA_private_decrypt(encryptedData.size(),(unsigned char *) encryptedData.const_byte_str(),&data[0], rsa, osslPadding);
 
-		return false;
+		if (decSize == -1)
+		{
+			ERROR_MSG("RSA private key decryption failed (0x%08X)", ERR_get_error());
+			return false;
+		}
+		data.resize(decSize);
 	}
+	else
+	{
+		//set mgf and digest algorithms from params
+		const EVP_MD *evpDigest = NULL_PTR;
+		const EVP_MD *evpMgf = NULL_PTR;
 
-	data.resize(decSize);
+		if (paramLen != sizeof(RSA_PKCS_OAEP_PARAMS)) {
+			ERROR_MSG("Error parameters invalid");
+		}
+
+		switch(((RSA_PKCS_OAEP_PARAMS *)param)->hash_alg){
+			case HashAlgo::SHA1:
+				evpDigest = EVP_sha1();
+				break;
+			case HashAlgo::SHA256:
+				evpDigest = EVP_sha256();
+				break;
+			case HashAlgo::SHA384:
+				evpDigest = EVP_sha384();
+				break;
+			case HashAlgo::SHA512:
+				evpDigest = EVP_sha512();
+				break;
+			default:
+				ERROR_MSG("Invalid RSA-OAEP hash");
+				return CKR_ARGUMENTS_BAD;
+		}
+
+		switch(((RSA_PKCS_OAEP_PARAMS *)param)->mgf){
+			case AsymRSAMGF::MGF1_SHA1:
+				evpMgf = EVP_sha1();
+				break;
+			case AsymRSAMGF::MGF1_SHA256:
+				evpMgf = EVP_sha256();
+				break;
+			case AsymRSAMGF::MGF1_SHA384:
+				evpMgf = EVP_sha384();
+				break;
+			case AsymRSAMGF::MGF1_SHA512:
+				evpMgf = EVP_sha512();
+				break;
+			default:
+				ERROR_MSG("Invalid RSA-OAEP mgf");
+				return CKR_ARGUMENTS_BAD;
+		}
+
+		int rc = 1;
+		using EVP_PKEY_ptr = std::unique_ptr<EVP_PKEY, decltype(&::EVP_PKEY_free)>;
+		using EVP_PKEY_CTX_ptr = std::unique_ptr<EVP_PKEY_CTX, decltype(&::EVP_PKEY_CTX_free)>;
+
+		EVP_PKEY_ptr pkey(EVP_PKEY_new(), ::EVP_PKEY_free);
+		EVP_PKEY_set1_RSA(pkey.get(), rsa); //set RSA struct to pkey for decryption
+
+		EVP_PKEY_CTX_ptr ctx(EVP_PKEY_CTX_new(pkey.get(), NULL), ::EVP_PKEY_CTX_free); //Initialize context after setting the key
+
+		if (!ctx.get()) {
+			ERROR_MSG("EVP CTX initialization failed");
+			return false;
+		}
+
+		if ((rc = EVP_PKEY_decrypt_init(ctx.get())) <= 0) {
+			ERROR_MSG("EVP_PKEY_decrypt init error");
+			return false;
+		}
+
+		if ((rc = EVP_PKEY_CTX_set_rsa_padding(ctx.get(), RSA_PKCS1_OAEP_PADDING)) <= 0) {
+			ERROR_MSG("Error setRSAPadding");
+			return false;
+		}
+		EVP_PKEY_CTX_set_rsa_oaep_md(ctx.get(), evpDigest);
+		EVP_PKEY_CTX_set_rsa_mgf1_md(ctx.get(), evpMgf);
+
+		/* Determine buffer length */
+		size_t outLen;
+		if ((rc = EVP_PKEY_decrypt(ctx.get(), NULL, &outLen, encryptedData.const_byte_str(), encryptedData.size())) <= 0) {
+			ERROR_MSG("Error in determining buffer length for Decrypt!");
+			return false;
+		}
+
+		data.resize(outLen);
+
+		/* perform decryption */
+		if ((rc = EVP_PKEY_decrypt(ctx.get(), &data[0], &outLen, (unsigned char*) encryptedData.const_byte_str(), encryptedData.size())) <= 0) {
+			ERROR_MSG("Error Decrypt!");
+			return false;
+		}
+		data.resize(outLen);
+	}
 
 	return true;
 }

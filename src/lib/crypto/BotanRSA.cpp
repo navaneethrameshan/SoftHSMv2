@@ -770,7 +770,8 @@ bool BotanRSA::verifyFinal(const ByteString& signature)
 
 // Encryption functions
 bool BotanRSA::encrypt(PublicKey* publicKey, const ByteString& data,
-		       ByteString& encryptedData, const AsymMech::Type padding)
+		       ByteString& encryptedData, const AsymMech::Type padding,  const void* param /* = NULL */,
+		       const size_t paramLen /* = 0 */)
 {
 	// Check if the public key is the right type
 	if (!publicKey->isOfType(BotanRSAPublicKey::type))
@@ -861,7 +862,8 @@ bool BotanRSA::encrypt(PublicKey* publicKey, const ByteString& data,
 
 // Decryption functions
 bool BotanRSA::decrypt(PrivateKey* privateKey, const ByteString& encryptedData,
-		       ByteString& data, const AsymMech::Type padding)
+		       ByteString& data, const AsymMech::Type padding,  const void* param /* = NULL */,
+		       const size_t paramLen /* = 0 */)
 {
 	// Check if the private key is the right type
 	if (!privateKey->isOfType(BotanRSAPrivateKey::type))
